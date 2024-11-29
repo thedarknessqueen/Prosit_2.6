@@ -5,8 +5,13 @@
 
 #include "lexer.h"
 
+#ifndef PARSER_H
+#define PARSER_H
+
+#endif // PARSER_H
+
 using namespace std;
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 class Expression;
 
 stack<Expression *> operators;
@@ -19,7 +24,7 @@ public:
 };
 
 class OpenExpression : public Expression {
-  void interpret();
+  void interpret() { ; }
 };
 
 class UnaryOp : public Expression {
@@ -27,74 +32,97 @@ public:
   virtual int compute(int right) = 0;
 
   void interpret() override {
-    /* TO BE COMPLETED */
+    //if (operands.empty())
+      //throw runtime_error("Syntax error: missing operand for unary operator.");
+
+    // Extraire l'opérande de la pile
+    int right = operands.top();
+    operands.pop();
+
+    // Calculer le résultat de l'opération unaire
+    int result = compute(right);
+
+    // Empiler le résultat dans les opérandes
+    operands.push(result);
   }
 };
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 class MinusUnaryOp : public UnaryOp {
 public:
   int compute(int right) override {
-    cout << "min unary op " <<endl;
-    return -right;
+    return -right; // Appliquer l'opération unaire "-"
   }
-  /* TO BE COMPLETED */
-
 };
+
 
 class PlusUnaryOp : public UnaryOp {
 public:
   int compute(int right) override {
-    cout << "plus unary op " <<endl;
-    return right;
+    return +right; // Appliquer l'opération unaire "+"
   }
-      /* TO BE COMPLETED */
-
 };
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 class BinaryOp : public Expression {
 public:
   virtual int compute(int left, int right) = 0;
 
   void interpret() override {
-        /* TO BE COMPLETED */
+    //if (operands.size() < 2)
+      //throw runtime_error("Syntax error: missing operands for binary operator.");
 
+    // Extraire les deux opérandes de la pile
+    int right = operands.top();
+    operands.pop();
+    int left = operands.top();
+    operands.pop();
+
+    // Calculer le résultat de l'opération binaire
+    int result = compute(left, right);
+
+    // Empiler le résultat dans les opérandes
+    operands.push(result);
   }
 };
 
 class MinusBinaryOp : public BinaryOp {
 public:
-  int compute(int right, int left ) override {
-    cout << "min binary op " <<endl;
-    return left-right;
+  int compute(int left, int right) override {
+    return left - right; // Appliquer l'opération binaire "-"
   }
-    /* TO BE COMPLETED */
 };
+
 
 class PlusBinaryOp : public BinaryOp {
 public:
-  int compute(int right, int left ) override {
-    cout << "plus binary op " <<endl;
-    return left+right;
+  int compute(int left, int right) override {
+    return left + right; // Appliquer l'opération binaire "+"
   }
-    /* TO BE COMPLETED */
 };
+
+
+
 
 class StarBinaryOp : public BinaryOp {
 public:
-    int compute(int left, int right) override;
-    /* TO BE COMPLETED */
+  int compute(int left, int right) override {
+    return left * right; // Appliquer l'opération binaire "*"
+  }
 };
+
 
 class DivBinaryOp : public BinaryOp {
 public:
-  int compute(int right, int left ) override {
-    cout << "div binary op " <<endl;
-    return left/right;
+  int compute(int left, int right) override {
+    if (right == 0) {
+      throw runtime_error("Division by zero.");
+    }
+    return left / right; // Appliquer l'opération binaire "/"
   }
-    /* TO BE COMPLETED */
 };
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 enum OperatorType { UNARY, BINARY, TERNARY };
 
 class OperatorFactory {
@@ -134,32 +162,10 @@ public:
       break;
     default:;
     }
-
-    /* TO BE COMPLETED */
+    return expr;
 
   }
 };
-
-/*
-  La grammaire LL(1):
-
-  BASE_EXP -> ( EXP ) |  LITERAL
-  EXP -> BASE_EXP BINOP BASE_EXP | UNOP BASE_EXP
-  BINOP -> - | + | * | /
-  UNOP -> - | +
-  LITERAL -> [0-9]+
-*/
-
-/*
-  For the motivated one's, the following grammar handles the more complex cases
-  of fully parenthesized infix arithmetic expressions. This grammar has
-  specifically been designed to be "code tractable", meaning that solving
-  special cases (such as ((1)) ) SHOULD be eased. E' -> E E -> ( H H -> G O ) H
-  -> L I ) G -> U K G -> E I -> B F I -> '' O -> B F O -> '' K -> E K -> L F ->
-  L F -> E U -> + U -> - B -> U B -> * B -> / L -> 1
-
-  Can be tested on https://jsmachines.sourceforge.net/machines/ll1.html
-*/
 
 class ExtendedParser {
   vector<Token *> tokens;
@@ -183,7 +189,6 @@ public:
   void reset() { idx = 0; }
   int parse() {
     reset();
-
     consumeBaseExpression();
 
     return operands.top();
@@ -209,50 +214,63 @@ public:
         curr->isType(TokenType::PLUSOPERATOR) ||
         curr->isType(TokenType::STAROPERATOR) ||
         curr->isType(TokenType::SLASHOPERATOR)) {
-      Expression *expr;
+      // Créer un opérateur binaire à l'aide de la factory
+      Expression *expr = OperatorFactory::build(curr->getType(), BINARY);
 
-      /* TO BE COMPLETED */
+      // Ajouter l'opérateur à la pile
+      operators.push(expr);
 
       return true;
-    }
-    rewind();
+        }
 
+    rewind(); // Si ce n'est pas un opérateur binaire, revenir en arrière
     return false;
   }
+
   bool consumeUnop() {
     Token *curr = next();
 
     if (curr->isType(TokenType::MINUSOPERATOR) ||
         curr->isType(TokenType::PLUSOPERATOR)) {
-      Expression *expr;
+      // Créer un opérateur unaire à l'aide de la factory
+      Expression *expr = OperatorFactory::build(curr->getType(), UNARY);
 
-      /* TO BE COMPLETED */
+      // Ajouter l'opérateur à la pile
+      operators.push(expr);
 
       return true;
-    }
-    rewind();
+        }
 
+    rewind(); // Si ce n'est pas un opérateur unaire, revenir en arrière
     return false;
   }
+
   bool consumeLitteral() {
     Token *curr = next();
 
     if (curr->isType(TokenType::INTEGER)) {
-      /* TO BE COMPLETED */
-
+      // Convertir la valeur du littéral en entier et l'empiler
+      operands.push(stoi(curr->getValue()));
       return true;
     }
-    rewind();
 
+    rewind(); // Si ce n'est pas un littéral, revenir en arrière
     return false;
   }
-  void consumeBaseExpression() {
-    if (!consumeLitteral()) {
-      /* TO BE COMPLETED */
 
+  void consumeBaseExpression() {
+
+    if (!consumeLitteral()) {
+      consumeLeftParenthesis();
+      consumeExpression();
+      consumeRightParenthesis();
+      //cout << "Exiting consumeBaseExpression at idx = " << idx << endl;
       solve();
     }
+
   }
+
+
   void consumeExpression() {
     if (!consumeUnop()) {
       consumeBaseExpression();
@@ -261,6 +279,7 @@ public:
 
     consumeBaseExpression();
   }
+
   void solve() {
     Expression *expr;
 
@@ -275,70 +294,3 @@ public:
   }
 };
 
-/* Poorly implemented parser :
-
-class Parser {
-public:
-  void parse(vector<Token *> tokens) {
-    Expression *expr;
-
-    for (int i = 0; i < tokens.size(); ++i) {
-      Token *curr = tokens[i];
-
-      if (curr->isType(TokenType::LPARENTHESIS)) {
-        operators.push(new OpenExpression());
-        if (i + 1 < tokens.size()) {
-          if (tokens[i + 1]->isOperator()) {
-            curr = tokens[++i];
-
-            expr = OperatorFactory::build(curr->getType(), OperatorType::UNARY);
-            operators.push(expr);
-          }
-        } else
-          throw new runtime_error("Expected token after opening parenthesis.");
-      } else if (tokens[i]->isType(TokenType::INTEGER)) {
-        operands.push(stoi(tokens[i]->getValue()));
-      } else if (tokens[i]->isOperator()) {
-        if (!(i - 1 > 0 && i + 1 < tokens.size() &&
-              (tokens[i - 1]->isType(TokenType::INTEGER) ||
-               tokens[i - 1]->isType(TokenType::RPARENTHESIS)) &&
-              (tokens[i + 1]->isType(TokenType::INTEGER) ||
-               tokens[i + 1]->isType(TokenType::LPARENTHESIS)))) {
-          throw new runtime_error("Expected two operands for binary operator.");
-        }
-
-        expr =
-            OperatorFactory::build(tokens[i]->getType(), OperatorType::BINARY);
-
-        operators.push(expr);
-      } else if (tokens[i]->isType(TokenType::RPARENTHESIS)) {
-        if (operators.size() >= 2) {
-          expr = operators.top();
-          operators.pop();
-
-          expr->interpret();
-          delete expr;
-
-          // pop left parenthesis
-          expr = operators.top();
-          operators.pop();
-
-          delete expr;
-        } else
-          throw new runtime_error("Syntax error.");
-      }
-    }
-    if (operators.size() != 0) {
-      throw new runtime_error("Syntax error.");
-
-      while (operators.size() != 0) {
-        expr = operators.top();
-        operators.pop();
-
-        delete expr;
-      }
-    }
-
-    cout << operands.top() << endl;
-  }
-};*/
